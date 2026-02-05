@@ -8,18 +8,6 @@ def get_my_notifications(db: Session, user_id: int, limit: int = 20, skip: int =
         Notification.receiver_id == user_id
     ).order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
 
-def mark_as_read(db: Session, user_id: int, notification_id: int) -> bool:
-    notification = db.query(Notification).filter(
-        Notification.id == notification_id,
-        Notification.receiver_id == user_id
-    ).first()
-    
-    if notification:
-        notification.is_read = True
-        db.commit()
-        return True
-    return False
-
 def mark_all_as_read(db: Session, user_id: int):
     db.query(Notification).filter(
         Notification.receiver_id == user_id,

@@ -16,10 +16,10 @@ class Notification(Base):
     receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     type = Column(Enum(NotificationType), nullable=False)
-    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     receiver = relationship("User", foreign_keys=[receiver_id])
     sender = relationship("User", foreign_keys=[sender_id])
-    post = relationship("Post", foreign_keys=[post_id])
+    post = relationship("Post", back_populates="notifications")

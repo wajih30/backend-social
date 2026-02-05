@@ -15,5 +15,6 @@ class Settings(BaseSettings):
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
     SENDER_EMAIL: str = os.getenv("SENDER_EMAIL")
     SENDER_PASSWORD: str = os.getenv("SENDER_PASSWORD")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
 settings = Settings()

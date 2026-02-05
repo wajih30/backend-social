@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import logging
 import traceback
 import os
-from app.api import auth, users, social, notifications, upload
+from app.api import auth, users, social, notifications, upload, ai
 
 # Setup basic logging to file
 logging.basicConfig(filename='backend_error.log', level=logging.ERROR)
@@ -50,3 +50,4 @@ app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(social.router, prefix="/social", tags=["social"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(upload.router, prefix="/upload", tags=["upload"])
+app.include_router(ai.router, prefix="/ai", tags=["ai"])

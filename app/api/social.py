@@ -1,8 +1,7 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
-from app.api.auth import get_current_user, get_db
+from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.user import UserPublic
 from app.schemas.social import (
@@ -56,16 +55,7 @@ def read_feed(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    posts = post_service.get_feed(db, current_user.id, limit, skip)
-    # Populate calculated fields (likes_count, comments_count, is_liked_by_me)
-    # Ideally done in service with efficient queries, but for now:
-    for p in posts:
-        p.likes_count = len(p.likes)
-        p.comments_count = len(p.comments)
-        p.is_liked_by_me = any(l.user_id == current_user.id for l in p.likes)
-    return posts
-
-
+    return post_service.get_feed(db, current_user.id, limit, skip)
 
 @router.get("/{post_id}", response_model=PostDetail)
 def read_post(
@@ -73,21 +63,10 @@ def read_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    post = post_service.get_post(db, post_id)
+    post = post_service.get_post(db, post_id, current_user.id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-        
-    # Populate calculated fields
-    post.likes_count = len(post.likes)
-    post.comments_count = len(post.comments)
-    post.is_liked_by_me = any(l.user_id == current_user.id for l in post.likes)
-    
-    # Ensure comments are loaded and have user info (lazy loading should work, but for safety)
-    # The Comment schema requires 'user', so it must be populated
-    
     return post
-
-
 
 @router.get("/user/{user_id}", response_model=List[PostSchema])
 def read_user_posts(
@@ -95,15 +74,9 @@ def read_user_posts(
     skip: int = 0,
     limit: int = 50, 
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # Auth optional for public? Spec says "Authenticated users can create posts", implies viewing is open? Requirement says "View other users profiles -> Display user's posts". 
-    # Let's keep it authenticated for consistency with "Social Media" usually requiring account for feed/details
+    current_user: User = Depends(get_current_user)
 ):
-    posts = post_service.get_user_posts(db, user_id, limit, skip)
-    for p in posts:
-        p.likes_count = len(p.likes)
-        p.comments_count = len(p.comments)
-        p.is_liked_by_me = any(l.user_id == current_user.id for l in p.likes)
-    return posts
+    return post_service.get_user_posts(db, user_id, current_user.id, limit, skip)
 
 
 # --- Follows ---

@@ -2,10 +2,12 @@ from sqlalchemy.orm import Session
 from app.models.follow import Follow
 from app.models.user import User
 from app.models.notification import Notification, NotificationType
+from fastapi import HTTPException
 
 def follow_user(db: Session, follower_id: int, following_id: int):
     if follower_id == following_id:
-        return None # Cannot follow self
+        
+        raise HTTPException(status_code=400, detail="You cannot follow yourself.")
         
     existing_follow = db.query(Follow).filter(
         Follow.follower_id == follower_id,
@@ -13,7 +15,8 @@ def follow_user(db: Session, follower_id: int, following_id: int):
     ).first()
     
     if existing_follow:
-        return existing_follow
+        
+        raise HTTPException(status_code=400, detail="You are already following this user.")
         
     new_follow = Follow(follower_id=follower_id, following_id=following_id)
     db.add(new_follow)

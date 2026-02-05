@@ -21,21 +21,38 @@ def create_post(db: Session, user_id: int, post_in: PostCreate) -> Post:
     db.refresh(db_post)
     return db_post
 
+def _populate_post_details(post: Post, current_user_id: int):
+    # This modifies the object in-place, which is okay for ORM objects attached to session, 
+    # but strictly we should map to a schema. For now, matching previous logic.
+    post.likes_count = len(post.likes)
+    post.comments_count = len(post.comments)
+    post.is_liked_by_me = any(l.user_id == current_user_id for l in post.likes)
+    return post
+
 def get_feed(db: Session, user_id: int, limit: int = 50, skip: int = 0) -> List[Post]:
     following_ids = db.query(Follow.following_id).filter(Follow.follower_id == user_id).all()
-    # Extract IDs into a list and add self
     user_ids = [f[0] for f in following_ids]
     user_ids.append(user_id)
     
-    return db.query(Post).filter(
+    posts = db.query(Post).filter(
         Post.user_id.in_(user_ids)
     ).order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
+    
+    for p in posts:
+        _populate_post_details(p, user_id)
+    return posts
 
-def get_user_posts(db: Session, user_id: int, limit: int = 50, skip: int = 0) -> List[Post]:
-    return db.query(Post).filter(Post.user_id == user_id).order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
+def get_user_posts(db: Session, user_id: int, current_user_id: int, limit: int = 50, skip: int = 0) -> List[Post]:
+    posts = db.query(Post).filter(Post.user_id == user_id).order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
+    for p in posts:
+        _populate_post_details(p, current_user_id)
+    return posts
 
-def get_post(db: Session, post_id: int) -> Optional[Post]:
-    return db.query(Post).filter(Post.id == post_id).first()
+def get_post(db: Session, post_id: int, current_user_id: Optional[int] = None) -> Optional[Post]:
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if post and current_user_id:
+        _populate_post_details(post, current_user_id)
+    return post
 
 def update_post(db: Session, user_id: int, post_id: int, post_in: PostUpdate) -> Optional[Post]:
     post = get_post(db, post_id)

@@ -1,11 +1,10 @@
-from typing import Any, List
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
-from app.api.auth import get_current_user, get_db
-from app.models.user import User
+from app.api.deps import get_current_user, get_db
 from app.schemas.user import User as UserSchema, UserPublic, UserUpdate, UserPasswordUpdate
 from app.services import user_service
+from app.models.user import User
 
 router = APIRouter()
 
@@ -19,25 +18,7 @@ def search_users(
     """
     Search for users by username or full name.
     """
-    users = db.query(User).filter(
-        (User.username.ilike(f"%{q}%")) | 
-        (User.full_name.ilike(f"%{q}%"))
-    ).limit(limit).all()
-    
-    # Convert to UserPublic with follower counts
-    result = []
-    for user in users:
-        result.append(UserPublic(
-            id=user.id,
-            username=user.username,
-            full_name=user.full_name,
-            bio=user.bio,
-            profile_picture_url=user.profile_picture_url,
-            created_at=user.created_at,
-            followers_count=len(user.followers),
-            following_count=len(user.following)
-        ))
-    return result
+    return user_service.search_users(db, q, limit)
 
 @router.get("/me", response_model=UserSchema)
 def read_user_me(current_user: User = Depends(get_current_user)):
@@ -83,31 +64,12 @@ def update_password_me(
     """
     Update password with complexity checks.
     """
-    from app.core.security import verify_password, get_password_hash
-    import re
-
-    # 1. Verify current password
-    if not verify_password(password_in.current_password, current_user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect current password")
-
-    # 2. Validate new password complexity
-    password = password_in.new_password
-    if len(password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
-    if not re.search(r"[A-Z]", password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter")
-    if not re.search(r"[a-z]", password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one lowercase letter")
-    if not re.search(r"\d", password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one number")
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one special character")
-    if len(password) > 72:
-        raise HTTPException(status_code=400, detail="Password cannot be longer than 72 characters")
-
-    # 3. Update password
-    current_user.password_hash = get_password_hash(password)
-    db.commit()
+    result = user_service.update_password(
+        db, current_user, password_in.current_password, password_in.new_password
+    )
+    
+    if result != "ok":
+         raise HTTPException(status_code=400, detail=result)
     
     return {"message": "Password updated successfully"}
 

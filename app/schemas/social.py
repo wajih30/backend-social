@@ -1,16 +1,20 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional, List
 from datetime import datetime
 from app.schemas.user import UserPublic
 
 # --- Post Schemas ---
 class PostBase(BaseModel):
-    content_text: str
+    content_text: Optional[str] = None
     caption: Optional[str] = None
     media_url: Optional[str] = None
 
 class PostCreate(PostBase):
-    pass
+    @model_validator(mode='after')
+    def check_content_presence(self) -> 'PostCreate':
+        if not self.content_text and not self.media_url:
+            raise ValueError("Post must have either text content or a media URL.")
+        return self
 
 class PostUpdate(BaseModel):
     content_text: Optional[str] = None

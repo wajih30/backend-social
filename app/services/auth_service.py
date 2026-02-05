@@ -46,17 +46,17 @@ def forgot_password(db: Session, email: str) -> None:
         raise HTTPException(status_code=500, detail="Failed to send reset email. Please check your SMTP settings.")
 
 def reset_password(db: Session, email: str, otp: str, new_password: str) -> None:
+    # Validate complexity first so we don't 'burn' the OTP if the password is weak
+    error = user_service.validate_password_complexity(new_password)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
     if not otp_service.verify_otp(db, email, otp, OTPPurpose.password_reset):
         raise HTTPException(status_code=400, detail="Invalid or expired reset code.")
         
     user = user_service.get_by_email(db, email)
     if not user:
         raise HTTPException(status_code=404, detail="User with this email not found.")
-    
-    # Validate complexity
-    error = user_service.validate_password_complexity(new_password)
-    if error:
-        raise HTTPException(status_code=400, detail=error)
         
     user.password_hash = get_password_hash(new_password)
     db.commit()
